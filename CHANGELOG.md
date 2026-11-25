@@ -13,6 +13,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 - Planejar › Projeção: gastos variáveis estimados pelas metas enquanto não houver 3 meses fechados (por grupo, meses reais + meta menos o já previsto no grupo). O histórico começa no primeiro mês fechado com gasto do dia a dia; valores com estimativa aparecem com "~". O alerta de mês no vermelho do Início usa a mesma estimativa.
 - Comprometido e livre (Início e Relatórios): no mês corrente mostra "Sobra até agora" e a previsão no fim do mês, descontando o que falta gastar até a meta de cada grupo.
 - Dívidas › Saldo de hoje: com parcela, nº de parcelas restantes e juros preenchidos, o saldo devedor pode ficar vazio e é calculado.
+- Dívidas: campo opcional "Juros já pagos antes do cadastro" (modo Saldo de hoje), somado aos juros pagos do quadro e de cada dívida.
 
 ### pessoal-v1.4 — 2026-11-18
 - Correção: compras no cartão que caem na fatura do mês seguinte passam a contar na ordem dos grupos do Lançar.

@@ -248,7 +248,7 @@ function montaDiv(d,res,old){
   const contrato=d.modo==="contrato",ini=contrato?d.ini:d.prox;
   return {id:d.id||uid(),nome:String(d.nome||"").trim(),tipo:d.tipo,sis:d.sis,modo:contrato?"contrato":"saldo",
     saldo:r2(res.S0),n:res.n,parcela:d.sis==="sac"?0:r2(res.P),p1:d.sis==="sac"?r2(res.P):0,taxa:res.i,un:d.un||"m",
-    taxaInf:res.calc==="taxa",semTaxaFim:res.calc==="taxa"&&d.sis!=="sac",calc:res.calc,enc:r2(parseVal(d.enc)),
+    taxaInf:res.calc==="taxa",semTaxaFim:res.calc==="taxa"&&d.sis!=="sac",calc:res.calc,enc:r2(parseVal(d.enc)),jAnt:contrato?0:r2(parseVal(d.jAnt)),
     ref:addM(ini,-1),auto0:contrato?(ini>CUR?ini:addM(CUR,1)):ini,dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),c:d.c,folha:!!d.folha,
     extras:old&&old.ref===addM(ini,-1)?old.extras||{}:{}};
 }
@@ -635,10 +635,10 @@ function cartaoFuturo(){const out={};for(const m in S.meses){if(m<=CUR)continue;
 function vDividas(){
   const ds=S.cfg.dividas||[];const cf=cartaoFuturo();const cfTot=Object.values(cf).reduce((a,b)=>a+b,0);
   const sdTot=ds.reduce((a,d)=>a+saldoAt(d,CUR),0);
-  const jPagos=ds.reduce((a,d)=>a+schedOf(d).filter(r=>r.m<=CUR).reduce((x,r)=>x+r.j,0),0);
+  const jPg=d=>(+d.jAnt||0)+schedOf(d).filter(r=>r.m<=CUR).reduce((x,r)=>x+r.j,0),jPagos=ds.reduce((a,d)=>a+jPg(d),0);
   const jFut=ds.reduce((a,d)=>a+schedOf(d).filter(r=>r.m>CUR).reduce((x,r)=>x+r.j,0),0);
   let h=`<div class="tiles"><div class="tile"><span>Saldo devedor</span><b>${brl0(sdTot+cfTot)}</b></div><div class="tile"><span>Juros pagos</span><b>${brl0(jPagos)}</b></div><div class="tile"><span>Juros a pagar</span><b class="neg">${brl0(jFut)}</b></div></div>
-  <div class="small muted">Saldo devedor = dívidas cadastradas (${brl0(sdTot)}) + parcelas de cartão a vencer (${brl0(cfTot)}). Juros pagos contam a partir do cadastro de cada dívida.</div>`;
+  <div class="small muted">Saldo devedor = dívidas cadastradas (${brl0(sdTot)}) + parcelas de cartão a vencer (${brl0(cfTot)}). Juros pagos = os informados no cadastro + os das parcelas desde então.</div>`;
   // evolução do saldo
   let end=addM(CUR,12);for(const d of ds){const r=schedOf(d);if(r.length&&r[r.length-1].m>end)end=r[r.length-1].m}for(const m in cf)if(m>end)end=m;
   if(diffM(CUR,end)>60)end=addM(CUR,60);
@@ -660,6 +660,7 @@ function vDividas(){
     <div class="row sp"><b>${esc(d.nome)}</b><span class="num"><b>${brl(s)}</b></span></div>
     <div class="small muted">${TIPOS[d.tipo]||""} · ${d.un==="a"?fmtPct(m2a(d.taxa))+"% a.a. ("+fmtPct(d.taxa)+"% a.m.)":fmtPct(d.taxa)+"% a.m."}${d.taxaInf?" calculada":""} · ${d.sis==="sac"?"SAC":"parcela fixa"}${d.folha?" · desconto em folha":""}</div>
     <div class="bar"><i style="width:${pct*100}%"></i></div>
+    ${jPg(d)>0?`<div class="small muted">Juros pagos até agora: ${brl(jPg(d))}</div>`:""}
     <div class="row sp small"><span>${prox?`Próxima: ${brl(prox.pago+(+d.enc||0))} (${brl(prox.j)} de juros${+d.enc?", "+brl(d.enc)+" de encargos":""})`:"Quitada"}</span><span>${fut.length?`${fut.length} parcelas · até ${mLabS(fim)}`:""}</span></div>
     ${r.bad?`<div class="banner">A parcela não cobre os juros do mês: nesse ritmo o saldo não diminui. Confira taxa e parcela.</div>`:""}
     <div class="row"><button class="btn" data-a="divida" data-id="${d.id}">Editar</button><button class="btn" data-a="extra" data-id="${d.id}">Amortização extra</button></div></div>`}
@@ -986,6 +987,7 @@ function renderSheet(){
     <div class="small muted">Preencha dois entre parcela, nº de parcelas e juros; o que ficar vazio é calculado.${contrato?"":" Sem o saldo? Preencha os três e deixe o saldo vazio: ele é calculado."} Juros com até 3 casas decimais (ex.: 0,875).</div>
     ${cin("s-enc","enc","Encargos mensais (opcional)",d.enc,dec)}
     <div class="small muted">Seguros e taxas cobrados junto com a parcela (ex.: MIP, DFI, taxa de administração). Somam no valor lançado, mas não entram no cálculo de juros nem no saldo.</div>
+    ${contrato?"":sin("s-jant","jAnt","Juros já pagos antes do cadastro (opcional)",d.jAnt,dec)+`<div class="small muted">Some os juros das parcelas já pagas (está no extrato do contrato). Entra no total de juros pagos; não muda o saldo nem as próximas parcelas.</div>`}
     ${selC(true)}
     <label class="chk"><input id="s-folha" type="checkbox" data-sc="sh" data-k="folha" ${d.folha?"checked":""}> Descontada em folha (não lançar como despesa, pois o salário já entra líquido)</label>
     <div id="div-res"></div>
@@ -1387,7 +1389,7 @@ document.addEventListener("click",e=>{
     if(x){const modo=x.modo||"saldo",un=x.un||"m",calc=x.calc||(x.taxaInf?"taxa":(!x.n?"n":(x.sis==="sac"&&!x.p1?"parcela":null)));
       openSheet("divida",{...clone(x),modo,un,unAuto:false,saldo:modo==="saldo"&&calc!=="saldo"?numIn(x.saldo):"",valor:modo==="contrato"?numIn(x.saldo):"",
         n:calc==="n"?"":String(x.n||""),parcela:calc==="parcela"?"":numIn(x.sis==="sac"?x.p1:x.parcela),taxa:calc==="taxa"?"":pctIn(un==="a"?m2a(x.taxa):x.taxa),
-        prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),dia:String(x.dia||"")})}
+        prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),jAnt:numIn(x.jAnt),dia:String(x.dia||"")})}
     else openSheet("divida",{nome:"",tipo:"financiamento",sis:"price",modo:"saldo",un:"a",unAuto:true,saldo:"",valor:"",parcela:"",n:"",taxa:"",prox:addM(CUR,1),ini:addM(CUR,1),dia:"5",enc:"",c:cc,folha:false})}
   else if(a==="saveDivida")saveDivida();
   else if(a==="delDivida"){S.cfg.dividas=S.cfg.dividas.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Dívida excluída. Parcelas já lançadas foram mantidas.");render()}
