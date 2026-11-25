@@ -11,6 +11,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ### pessoal-v1.5 — 2026-11-25
 - Planejar › Projeção: gastos variáveis estimados pelas metas enquanto não houver 3 meses fechados (por grupo, meses reais + meta menos o já previsto no grupo). O histórico começa no primeiro mês fechado com gasto do dia a dia; valores com estimativa aparecem com "~". O alerta de mês no vermelho do Início usa a mesma estimativa.
+- Comprometido e livre (Início e Relatórios): no mês corrente mostra "Sobra até agora" e a previsão no fim do mês, descontando o que falta gastar até a meta de cada grupo.
 
 ### pessoal-v1.4 — 2026-11-18
 - Correção: compras no cartão que caem na fatura do mês seguinte passam a contar na ordem dos grupos do Lançar.

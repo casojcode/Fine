@@ -796,11 +796,15 @@ function vRel(){
   // 1. comprometido x livre (mês selecionado)
   const it=itemsOf(m),rec=tot(it,"R"),comp=it.filter(i=>i.t==="D"&&comprometido(i)).reduce((a,i)=>a+i.v,0),vari=tot(it,"D")-comp,livre=rec-comp-vari;
   const base=Math.max(rec,comp+vari,1),pc=v=>rec>0?Math.round(v/rec*100)+"% da renda":"";
+  // mês corrente: previsão no fim do mês = sobra até agora − o que falta gastar até a meta de cada grupo
+  let prevFim="";if(m===CUR){const gg={};for(const i of it)if(i.t==="D")gg[i.g]=(gg[i.g]||0)+i.v;
+    const falta=Object.entries(S.cfg.metas||{}).reduce((a,[g,mt])=>a+Math.max(0,(+mt||0)-(gg[g]||0)),0),pf=livre-falta;
+    prevFim=`<div class="row sp" style="margin-top:6px"><span>Previsão no fim do mês</span><span class="num ${pf<0?"neg":"pos"}"><b>${brl0(pf)}</b></span></div><div class="small muted">${falta>0?`Desconta ${brl0(falta)} que ainda faltam gastar até a meta dos grupos.`:"Os grupos já atingiram as metas; a previsão é igual à sobra de agora."}${pc(pf)?" · "+pc(pf):""}</div>`}
   h+=`<div class="card"><h2>Comprometido e livre · ${mLab(m)}</h2>
   <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)"><i style="width:${comp/base*100}%;background:var(--accent)"></i><i style="width:${vari/base*100}%;background:var(--warn)"></i><i style="width:${Math.max(livre,0)/base*100}%;background:var(--pos)"></i></div>
   <div class="row sp"><span><span style="color:var(--accent)">■</span> Comprometido (fixos, parcelas, dívidas)</span><span class="num">${brl0(comp)}</span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(comp)}</div>
   <div class="row sp"><span><span style="color:var(--warn)">■</span> Variável (dia a dia)</span><span class="num">${brl0(vari)}</span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(vari)}</div>
-  <div class="row sp"><span><span class="pos">■</span> ${livre<0?"Faltou":"Sobrou"}</span><span class="num ${livre<0?"neg":"pos"}"><b>${brl0(livre)}</b></span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(livre)}</div></div>`;
+  <div class="row sp"><span><span class="pos">■</span> ${m===CUR?(livre<0?"Faltou até agora":"Sobra até agora"):livre<0?"Faltou":"Sobrou"}</span><span class="num ${livre<0?"neg":"pos"}"><b>${brl0(livre)}</b></span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(livre)}</div>${prevFim}</div>`;
   P.comp=h;h="";
   // 2. projeção dos próximos 12 meses
   const e=estimativas();let ac=0;
