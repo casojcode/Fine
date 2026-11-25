@@ -96,6 +96,7 @@ input[type=text],input[type=date],input[type=month],input[type=number],select{wi
 .seg.t button[aria-pressed="true"][data-v="D"]{background:var(--neg);color:#fff}
 .seg.t button[aria-pressed="true"][data-v="R"]{background:var(--pos);color:#fff}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips.one{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}.chips.one::-webkit-scrollbar{display:none}.chips.one .chip{flex-shrink:0;white-space:nowrap}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13.5px;cursor:pointer;color:var(--ink)}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
 .chip.cc::before{content:"";display:inline-block;width:9px;height:7px;border:1.5px solid currentColor;border-radius:2px;margin-right:6px;opacity:.7}
@@ -378,6 +379,7 @@ function render(){
     h+=({inicio:vInicio,lancar:vLancar,extrato:vExtrato,planejar:vPlanejar,mais:vMais}[S.tab])();
   }
   $("main").innerHTML=h;
+  {const bx=$("f-cs"),sl=bx&&bx.querySelector('[aria-pressed="true"]');if(sl&&sl.offsetLeft+sl.offsetWidth>bx.clientWidth)bx.scrollLeft=sl.offsetLeft-8}
   if(aid&&$(aid)&&$(aid)!==document.activeElement){const el=$(aid);el.focus();try{if(ss!=null)el.setSelectionRange(ss,se)}catch(e){}}
   renderSheet();
 }
@@ -403,6 +405,9 @@ function uso(t,g){ // compras no cartão ficam no mês da fatura (às vezes o m�
     const n=dif(i.d);if(n>5)continue;u[key]=(u[key]||0)+Math.pow(.85,n)}
   return u}
 const usoG=t=>uso(t);
+function usoC(t){const u={},dif=d=>{const [y,m]=d.split("-").map(Number),[cy,cm]=CUR.split("-").map(Number);return Math.max((cy-y)*12+(cm-m),0)};
+  for(let k=-2;k<6;k++)for(const i of getMes(addM(CUR,-k)).itens){if(i.t!==t||!manual(i)||!i.d||!i.c)continue;const n=dif(i.d);if(n>5)continue;u[i.c]=(u[i.c]||0)+Math.pow(.85,n)}
+  return u}
 function usoGrupos(t){const u=usoG(t);return grupos(t).slice().sort((a,b)=>(u[b.n]||0)-(u[a.n]||0))}
 function itRow(i,m){
   const c=conta(i.c);const sub=[i.g+(i.s?" › "+i.s:""),c?c.n:""].filter(Boolean).join(" · ");
@@ -420,7 +425,7 @@ function vLogin(){
 }
 function vLancar(){
   const gs=usoGrupos(F.t);const g=grupos(F.t).find(x=>x.n===F.g);
-  const cs=S.cfg.contas.filter(c=>F.t==="D"||c.tipo!=="cartao");
+  const uc=usoC(F.t),cs=S.cfg.contas.filter(c=>F.t==="D"||c.tipo!=="cartao").map((c,k)=>({c,k})).sort((a,b)=>((uc[b.c.id]||0)-(uc[a.c.id]||0))||(a.k-b.k)).map(x=>x.c);
   if(!cs.find(c=>c.id===F.c))F.c=cs[0]?cs[0].id:"";
   const c=conta(F.c);const card=c&&c.tipo==="cartao";
   const f0=card?fatMonth(c,F.d):ymOf(F.d);const fat=F.fat||f0;
@@ -431,7 +436,7 @@ function vLancar(){
   <div class="chips">${chipsLimitados(grupos(F.t).map(x=>x.n),usoG(F.t),F.g,"g",F.moreG)}</div>
   ${g&&g.s.length?`<div class="small muted">Subgrupo</div><div class="chips">${chipsLimitados(g.s,usoSub(F.t,g.n),F.s,"s",F.moreS)}</div>`:""}
   <div class="small muted">${F.t==="D"?"Forma de pagamento":"Onde entrou"}</div>
-  <div class="chips">${cs.map(x=>`<button class="chip ${x.tipo==="cartao"?"cc":""}" data-a="set" data-k="c" data-v="${x.id}" aria-pressed="${F.c===x.id}">${esc(x.n)}</button>`).join("")}</div>
+  <div class="chips one" id="f-cs">${cs.map(x=>`<button class="chip ${x.tipo==="cartao"?"cc":""}" data-a="set" data-k="c" data-v="${x.id}" aria-pressed="${F.c===x.id}">${esc(x.n)}</button>`).join("")}</div>
   <div class="row"><label class="fld">Data<input id="f-d" type="date" data-k="d" data-r="1" value="${F.d}"></label>
   ${card?`<label class="fld">Fatura<select id="f-fat" data-k="fat" data-r="1">${[-1,0,1,2,3].map(n=>opt(addM(f0,n),mLab(addM(f0,n)),fat)).join("")}</select></label>`:""}</div>
   ${card&&!c.fech?`<div class="banner">Este cartão está sem dia de fechamento. Informe em Mais › Cartões e contas para a fatura ser calculada sozinha.</div>`:""}
