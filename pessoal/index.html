@@ -393,9 +393,13 @@ function chipsLimitados(lista,freq,sel,k,aberto){ // item 7: mais usados primeir
 }
 // frequência de uso: só o que você lança à mão (fixos, dívidas e parcelas seguintes não contam), com mais peso para os meses recentes
 const manual=i=>!i.fx&&!i.dv&&!(i.pn>1);
-function uso(t,g){const u={};for(let k=0;k<6;k++){const w=Math.pow(.85,k);for(const i of getMes(addM(CUR,-k)).itens){if(i.t!==t||!manual(i))continue;const key=g?(i.g===g?i.s:""):i.g;if(key)u[key]=(u[key]||0)+w}}return u}
+function uso(t,g){ // compras no cartão ficam no mês da fatura (às vezes o mês que vem): olha também os próximos meses e pesa pela data da compra
+  const u={},dif=d=>{const [y,m]=d.split("-").map(Number),[cy,cm]=CUR.split("-").map(Number);return Math.max((cy-y)*12+(cm-m),0)};
+  for(let k=-2;k<6;k++)for(const i of getMes(addM(CUR,-k)).itens){if(i.t!==t||!manual(i)||!i.d)continue;const key=g?(i.g===g?i.s:""):i.g;if(!key)continue;
+    const n=dif(i.d);if(n>5)continue;u[key]=(u[key]||0)+Math.pow(.85,n)}
+  return u}
 const usoG=t=>uso(t);
-function usoGrupos(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t)u[i.g]=(u[i.g]||0)+1;return grupos(t).slice().sort((a,b)=>(u[b.n]||0)-(u[a.n]||0))}
+function usoGrupos(t){const u=usoG(t);return grupos(t).slice().sort((a,b)=>(u[b.n]||0)-(u[a.n]||0))}
 function itRow(i,m){
   const c=conta(i.c);const sub=[i.g+(i.s?" › "+i.s:""),c?c.n:""].filter(Boolean).join(" · ");
   const tags=(i.pt?`<span class="pill">${i.pn}/${i.pt}</span> `:"")+(i.fx?`<span class="pill">fixo</span> `:"")+(i.est?`<span class="pill w">estimado</span> `:"")+(i.virt?`<span class="pill w">previsto</span> `:"");
