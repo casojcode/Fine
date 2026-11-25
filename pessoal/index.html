@@ -220,7 +220,7 @@ const unPadrao=tipo=>tipo==="financiamento"?"a":"m";
 function setUn(d,un){if(d.un===un)return;if(String(d.taxa||"").trim()!==""){const r=parseVal(d.taxa)/100;const m=d.un==="a"?a2m(r):r;d.taxa=pctIn(un==="a"?m2a(m):m)}d.un=un}
 function calcDiv(d){ // preenchidos dois entre parcela, nº de parcelas e juros, calcula o terceiro (Price ou SAC)
   const contrato=d.modo==="contrato",sac=d.sis==="sac",un=d.un||"m";
-  const S0=parseVal(contrato?d.valor:d.saldo);const tem=k=>String(d[k]==null?"":d[k]).trim()!=="";
+  const S0=parseVal(contrato?d.valor:d.saldo),cor=contrato?Math.max(0,parseVal(d.cor)/100):0,Sc=S0*(1+cor);const tem=k=>String(d[k]==null?"":d[k]).trim()!=="";
   let n=parseInt(d.n)||0,P=parseVal(d.parcela);const r=parseVal(d.taxa)/100;let i=tem("taxa")?(un==="a"?a2m(r):r):null;
   const has={P:tem("parcela")&&P>0,n:tem("n")&&n>0,i:tem("taxa")&&r>=0};
   const res={S0,calc:null,erro:"",aviso:""};
@@ -232,15 +232,15 @@ function calcDiv(d){ // preenchidos dois entre parcela, nº de parcelas e juros,
   const cnt=has.P+has.n+has.i;
   if(cnt<2){res.erro="Preencha dois entre "+(sac?"1ª parcela":"parcela")+", nº de parcelas e juros: o terceiro é calculado.";return res}
   if(cnt===2){
-    if(!has.P){P=sac?S0/n+S0*i:pmtOf(S0,i,n);res.calc="parcela"}
+    if(!has.P){P=sac?Sc/n+Sc*i:pmtOf(Sc,i,n);res.calc="parcela"}
     else if(!has.n){
-      if(P<=S0*i&&!(i===0)){res.erro="Com esses juros, a "+(sac?"1ª parcela":"parcela")+" não cobre nem os juros do mês.";return res}
-      n=sac?Math.ceil(S0/(P-S0*i)-1e-9):i===0?Math.ceil(S0/P-1e-9):Math.ceil(-Math.log(1-S0*i/P)/Math.log(1+i)-1e-9);res.calc="n"}
+      if(P<=Sc*i&&!(i===0)){res.erro="Com esses juros, a "+(sac?"1ª parcela":"parcela")+" não cobre nem os juros do mês.";return res}
+      n=sac?Math.ceil(Sc/(P-Sc*i)-1e-9):i===0?Math.ceil(Sc/P-1e-9):Math.ceil(-Math.log(1-Sc*i/P)/Math.log(1+i)-1e-9);res.calc="n"}
     else{
-      if(sac){i=(P-S0/n)/S0;if(i<-1e-9){res.erro="A 1ª parcela é menor que a amortização (valor ÷ nº de parcelas). Confira os valores.";return res}i=Math.max(i,0)}
-      else{if(P*n<S0-0.01){res.erro="Parcela × nº de parcelas é menor que o valor. Confira os valores.";return res}i=impliedRate(S0,P,n)}
+      if(sac){i=(P-Sc/n)/Sc;if(i<-1e-9){res.erro="A 1ª parcela é menor que a amortização (valor ÷ nº de parcelas). Confira os valores.";return res}i=Math.max(i,0)}
+      else{if(P*n<Sc-0.01){res.erro="Parcela × nº de parcelas é menor que o valor. Confira os valores.";return res}i=impliedRate(Sc,P,n)}
       res.calc="taxa"}
-  }else{const Pc=sac?S0/n+S0*i:pmtOf(S0,i,n);
+  }else{const Pc=sac?Sc/n+Sc*i:pmtOf(Sc,i,n);
     if(Math.abs(Pc-P)>Math.max(1,P*0.01))res.aviso="Os três valores não batem: com esses juros e esse prazo, a "+(sac?"1ª parcela":"parcela")+" seria "+brl(Pc)+". Apague o campo que deve ser calculado."}
   Object.assign(res,{n,P,i});return res;
 }
@@ -248,7 +248,7 @@ function montaDiv(d,res,old){
   const contrato=d.modo==="contrato",ini=contrato?d.ini:d.prox;
   return {id:d.id||uid(),nome:String(d.nome||"").trim(),tipo:d.tipo,sis:d.sis,modo:contrato?"contrato":"saldo",
     saldo:r2(res.S0),n:res.n,parcela:d.sis==="sac"?0:r2(res.P),p1:d.sis==="sac"?r2(res.P):0,taxa:res.i,un:d.un||"m",
-    taxaInf:res.calc==="taxa",semTaxaFim:res.calc==="taxa"&&d.sis!=="sac",calc:res.calc,enc:r2(parseVal(d.enc)),jAnt:contrato?0:r2(parseVal(d.jAnt)),
+    taxaInf:res.calc==="taxa",semTaxaFim:res.calc==="taxa"&&d.sis!=="sac",calc:res.calc,enc:r2(parseVal(d.enc)),cor:contrato?Math.max(0,parseVal(d.cor)/100):0,
     ref:addM(ini,-1),auto0:contrato?(ini>CUR?ini:addM(CUR,1)):ini,dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),c:d.c,folha:!!d.folha,
     extras:old&&old.ref===addM(ini,-1)?old.extras||{}:{}};
 }
@@ -276,10 +276,10 @@ function atualizaDiv(){ // atualiza só os textos da folha (sem redesenhar os ca
 // Cronograma de uma dívida a partir do mês de referência (saldo informado vale após a parcela de d.ref).
 function sched(d){
   const rows=[];let s=+d.saldo||0,m=d.ref,k=0;const i=+d.taxa||0;
-  const am=d.sis==="sac"?s/Math.max(+d.n||1,1):0;const ex=d.extras||{};
+  const am=d.sis==="sac"?s/Math.max(+d.n||1,1):0;const ex=d.extras||{},cor=+d.cor||0,N=+d.n||0;
   while(s>0.005&&k<600){
-    m=addM(m,1);k++;const j=s*i;
-    let pago=d.sis==="sac"?Math.min(s,am)+j:Math.min(+d.parcela||0,s+j);
+    m=addM(m,1);k++;if(cor)s*=1+cor;const j=s*i,rest=Math.max(N-k+1,1);
+    let pago=d.sis==="sac"?Math.min(s,cor?s/rest:am)+j:Math.min(cor?pmtOf(s,i,rest):+d.parcela||0,s+j);
     if(d.sis!=="sac"&&d.semTaxaFim&&k===+d.n)pago=s+j;
     s=s-(pago-j);const e=Math.min(+ex[m]||0,Math.max(s,0));s-=e;
     rows.push({m,j,pago,ex:e,s:Math.max(s,0)});
@@ -635,10 +635,10 @@ function cartaoFuturo(){const out={};for(const m in S.meses){if(m<=CUR)continue;
 function vDividas(){
   const ds=S.cfg.dividas||[];const cf=cartaoFuturo();const cfTot=Object.values(cf).reduce((a,b)=>a+b,0);
   const sdTot=ds.reduce((a,d)=>a+saldoAt(d,CUR),0);
-  const jPg=d=>(+d.jAnt||0)+schedOf(d).filter(r=>r.m<=CUR).reduce((x,r)=>x+r.j,0),jPagos=ds.reduce((a,d)=>a+jPg(d),0);
+  const jPg=d=>schedOf(d).filter(r=>r.m<=CUR).reduce((x,r)=>x+r.j,0),jPagos=ds.reduce((a,d)=>a+jPg(d),0);
   const jFut=ds.reduce((a,d)=>a+schedOf(d).filter(r=>r.m>CUR).reduce((x,r)=>x+r.j,0),0);
   let h=`<div class="tiles"><div class="tile"><span>Saldo devedor</span><b>${brl0(sdTot+cfTot)}</b></div><div class="tile"><span>Juros pagos</span><b>${brl0(jPagos)}</b></div><div class="tile"><span>Juros a pagar</span><b class="neg">${brl0(jFut)}</b></div></div>
-  <div class="small muted">Saldo devedor = dívidas cadastradas (${brl0(sdTot)}) + parcelas de cartão a vencer (${brl0(cfTot)}). Juros pagos = os informados no cadastro + os das parcelas desde então.</div>`;
+  <div class="small muted">Saldo devedor = dívidas cadastradas (${brl0(sdTot)}) + parcelas de cartão a vencer (${brl0(cfTot)}). Juros pagos contam desde a 1ª parcela (dívidas cadastradas pelos dados do contrato) ou desde o cadastro (pelo saldo de hoje).</div>`;
   // evolução do saldo
   let end=addM(CUR,12);for(const d of ds){const r=schedOf(d);if(r.length&&r[r.length-1].m>end)end=r[r.length-1].m}for(const m in cf)if(m>end)end=m;
   if(diffM(CUR,end)>60)end=addM(CUR,60);
@@ -978,7 +978,8 @@ function renderSheet(){
     <div class="small muted">Ponto de partida</div>
     <div class="seg"><button data-a="shset" data-k="modo" data-v="saldo" aria-pressed="${!contrato}">Saldo de hoje</button><button data-a="shset" data-k="modo" data-v="contrato" aria-pressed="${contrato}">Dados do contrato</button></div>
     ${contrato?`<div class="row">${cin("s-valor","valor","Valor do contrato",d.valor,dec)}${cin("s-n","n","Prazo total (parcelas)",d.n,int)}</div>
-      <div class="row">${sin("s-ini","ini","1ª parcela em",d.ini,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>`
+      <div class="row">${sin("s-ini","ini","1ª parcela em",d.ini,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>
+      ${sin("s-cor","cor","Correção monetária (% a.m., opcional)",d.cor,dec)}<div class="small muted">Para contratos corrigidos por índice (ex.: TR média do extrato, 0,1685). O saldo é corrigido todo mês antes dos juros. Deixe em branco se não houver.</div>`
     :`<div class="row">${cin("s-saldo","saldo","Saldo devedor hoje",d.saldo,dec)}${cin("s-n","n","Parcelas restantes",d.n,int)}</div>
       <div class="row">${sin("s-prox","prox","Próxima parcela em",d.prox,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>`}
     <div class="row">${cin("s-parcela","parcela",sac?(contrato?"1ª parcela do contrato":"Próxima parcela"):"Parcela",d.parcela,dec)}
@@ -987,7 +988,6 @@ function renderSheet(){
     <div class="small muted">Preencha dois entre parcela, nº de parcelas e juros; o que ficar vazio é calculado.${contrato?"":" Sem o saldo? Preencha os três e deixe o saldo vazio: ele é calculado."} Juros com até 3 casas decimais (ex.: 0,875).</div>
     ${cin("s-enc","enc","Encargos mensais (opcional)",d.enc,dec)}
     <div class="small muted">Seguros e taxas cobrados junto com a parcela (ex.: MIP, DFI, taxa de administração). Somam no valor lançado, mas não entram no cálculo de juros nem no saldo.</div>
-    ${contrato?"":sin("s-jant","jAnt","Juros já pagos antes do cadastro (opcional)",d.jAnt,dec)+`<div class="small muted">Some os juros das parcelas já pagas (está no extrato do contrato). Entra no total de juros pagos; não muda o saldo nem as próximas parcelas.</div>`}
     ${selC(true)}
     <label class="chk"><input id="s-folha" type="checkbox" data-sc="sh" data-k="folha" ${d.folha?"checked":""}> Descontada em folha (não lançar como despesa, pois o salário já entra líquido)</label>
     <div id="div-res"></div>
@@ -1389,7 +1389,7 @@ document.addEventListener("click",e=>{
     if(x){const modo=x.modo||"saldo",un=x.un||"m",calc=x.calc||(x.taxaInf?"taxa":(!x.n?"n":(x.sis==="sac"&&!x.p1?"parcela":null)));
       openSheet("divida",{...clone(x),modo,un,unAuto:false,saldo:modo==="saldo"&&calc!=="saldo"?numIn(x.saldo):"",valor:modo==="contrato"?numIn(x.saldo):"",
         n:calc==="n"?"":String(x.n||""),parcela:calc==="parcela"?"":numIn(x.sis==="sac"?x.p1:x.parcela),taxa:calc==="taxa"?"":pctIn(un==="a"?m2a(x.taxa):x.taxa),
-        prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),jAnt:numIn(x.jAnt),dia:String(x.dia||"")})}
+        prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),cor:x.cor?String(+(x.cor*100).toFixed(4)).replace(".",","):"",dia:String(x.dia||"")})}
     else openSheet("divida",{nome:"",tipo:"financiamento",sis:"price",modo:"saldo",un:"a",unAuto:true,saldo:"",valor:"",parcela:"",n:"",taxa:"",prox:addM(CUR,1),ini:addM(CUR,1),dia:"5",enc:"",c:cc,folha:false})}
   else if(a==="saveDivida")saveDivida();
   else if(a==="delDivida"){S.cfg.dividas=S.cfg.dividas.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Dívida excluída. Parcelas já lançadas foram mantidas.");render()}
