@@ -527,7 +527,7 @@ function vInicio(){
   for(const i of its.filter(i=>i.est&&!i.virt))al.push(`<button class="it" data-a="edit" data-m="${m}" data-id="${i.id}"><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} <span class="pill w">estimado</span></div><div class="small muted">Toque para informar o valor real</div></div><div class="num">${brl(i.v)}</div></button>`);
   {const hj=todayStr(),l30=(()=>{const d=new Date(hj+"T12:00:00");d.setDate(d.getDate()+30);return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())})();
     for(const v of invs())if(v.liq==="venc"&&v.venc&&v.venc>=hj&&v.venc<=l30)al.push(`<div class="row sp"><span>${esc(v.n)} vence em ${dataBR(v.venc)}</span><span class="pill w">investimento</span></div>`)}
-  if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d;if(sd<0){al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`);break}}}
+  if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d(x);if(sd<0){al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`);break}}}
   if(al.length)h+=`<div class="card"><h2>Atenção</h2>${al.join("")}</div>`;
   // próximos vencimentos
   const V=vencimentos();
@@ -706,13 +706,27 @@ function vMais(){
 const back=()=>`<div><button class="btn lnk" data-a="sub" data-v="">‹ Voltar</button></div>`;
 /* ---------- relatórios de planejamento ---------- */
 const comprometido=i=>!!(i.fx||i.dv||i.pt);
-function estimativas(){ // médias mensais do que não é fixo, parcela nem dívida, nos 3 meses anteriores
+function estimativas(){ // gastos variáveis: média dos meses fechados desde o início do controle, completada pelas metas
   const fx=S.cfg.fixos||[];
   const jaFixo=i=>fx.some(f=>f.t===i.t&&f.g===i.g&&((f.s&&f.s===i.s)||(f.o&&i.o&&f.o.toLowerCase()===i.o.toLowerCase())));
-  let n=0,d=0,r=0;
-  for(let k=1;k<=3;k++){const it=getMes(addM(CUR,-k)).itens;if(!it.length)continue;n++;
-    for(const i of it){if(comprometido(i)||jaFixo(i))continue;if(i.t==="D")d+=i.v;else r+=i.v}}
-  return {n,d:n?d/n:0,r:n?r/n:0};
+  const prevI=i=>comprometido(i)||jaFixo(i);
+  // início do controle = primeiro mês fechado com gasto do dia a dia (meses só com parcelas não contam)
+  const ks=Object.keys(S.meses).filter(k=>k<CUR&&getMes(k).itens.some(i=>i.t==="D"&&!prevI(i))).sort();
+  const ini=S.cfg.inicio||ks[0]||CUR;
+  const ms=[];for(let k=1;k<=3;k++){const x=addM(CUR,-k);if(x>=ini)ms.push(x)}
+  const n=ms.length,real={};let r=0;
+  for(const x of ms)for(const i of getMes(x).itens){if(prevI(i))continue;if(i.t==="D")real[i.g]=(real[i.g]||0)+i.v;else r+=i.v}
+  const metas=S.cfg.metas||{},comMeta=g=>(+metas[g]||0)>0;
+  const gs=[...new Set([...Object.keys(metas).filter(comMeta),...Object.keys(real)])];
+  const est=n<3&&gs.some(comMeta),cache={};
+  // por grupo: meses reais + (3 − n) meses de meta; a meta vale só pelo que sobra além do já previsto no grupo
+  const d=x=>{if(cache[x]!=null)return cache[x];const pv={};
+    for(const i of itemsOf(x))if(i.t==="D"&&prevI(i))pv[i.g]=(pv[i.g]||0)+i.v;
+    let s=0;for(const g of gs){const rl=real[g]||0;
+      if(!est||!comMeta(g)){s+=n?rl/n:0;continue}
+      s+=(rl+(3-n)*Math.max(0,+metas[g]-(pv[g]||0)))/3}
+    return cache[x]=s};
+  return {n,est,r:n?r/n:0,d};
 }
 const n0=v=>(+v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
 /* ---------- economias e investimentos ---------- */
@@ -790,12 +804,12 @@ function vRel(){
   P.comp=h;h="";
   // 2. projeção dos próximos 12 meses
   const e=estimativas();let ac=0;
-  const pr=[];for(let k=1;k<=12;k++){const x=addM(CUR,k),t=itemsOf(x);const entra=tot(t,"R")+e.r,sai=tot(t,"D")+e.d;ac+=entra-sai;pr.push({x,entra,sai,saldo:entra-sai,ac})}
+  const pr=[];for(let k=1;k<=12;k++){const x=addM(CUR,k),t=itemsOf(x);const entra=tot(t,"R")+e.r,sai=tot(t,"D")+e.d(x);ac+=entra-sai;pr.push({x,entra,sai,saldo:entra-sai,ac})}
   const neg=pr.filter(q=>q.saldo<0);
   h+=`<div class="card"><h2>Projeção dos próximos 12 meses</h2>
-  <div class="small muted">Entra = receitas fixas${e.r?" + "+brl0(e.r)+" de média das outras receitas":""}. Sai = fixos, parcelas e dívidas já previstos + ${brl0(e.d)} de gastos variáveis ${e.n?`(média de ${e.n} ${e.n===1?"mês":"meses"})`:"(sem histórico ainda)"}. Valores em R$.</div>
+  <div class="small muted">Entra = receitas fixas${e.r?" + "+brl0(e.r)+" de média das outras receitas":""}. Sai = fixos, parcelas e dívidas já previstos + ${brl0(e.d(addM(CUR,1)))} de gastos variáveis em ${mLabS(addM(CUR,1))} ${e.est?(e.n?`(estimado: ${e.n} ${e.n===1?"mês real":"meses reais"} + ${3-e.n} de meta)`:"(estimado pelas metas, sem mês fechado ainda)"):e.n?`(média de ${e.n} ${e.n===1?"mês":"meses"})`:"(sem histórico ainda)"}. ${e.est?"~ = inclui estimativa pelas metas (meta do grupo menos o já previsto nele). ":""}Valores em R$.</div>
   <div style="overflow-x:auto"><table><tr><th>Mês</th><th>Entra</th><th>Sai</th><th>Saldo</th><th>Acum.</th></tr>
-  ${pr.map(q=>`<tr><td>${mLabS(q.x)}</td><td class="num">${n0(q.entra)}</td><td class="num">${n0(q.sai)}</td><td class="num ${q.saldo<0?"neg":"pos"}">${n0(q.saldo)}</td><td class="num ${q.ac<0?"neg":""}">${n0(q.ac)}</td></tr>`).join("")}</table></div>
+  ${pr.map(q=>`<tr><td>${mLabS(q.x)}</td><td class="num">${n0(q.entra)}</td><td class="num">${e.est?"~":""}${n0(q.sai)}</td><td class="num ${q.saldo<0?"neg":"pos"}">${n0(q.saldo)}</td><td class="num ${q.ac<0?"neg":""}">${n0(q.ac)}</td></tr>`).join("")}</table></div>
   ${neg.length?`<div class="banner">${neg.length} ${neg.length===1?"mês fecha":"meses fecham"} no vermelho: ${neg.slice(0,6).map(q=>mLabS(q.x)).join(", ")}${neg.length>6?"…":""}.</div>`:""}
   ${!pr.some(q=>q.entra>0)?`<div class="small muted">Para a projeção mostrar suas receitas, cadastre o salário como fixo do tipo Receita em Mais › Lançamentos fixos.</div>`:""}</div>`;
   P.proj=h;h="";
