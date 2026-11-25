@@ -224,6 +224,10 @@ function calcDiv(d){ // preenchidos dois entre parcela, nº de parcelas e juros,
   let n=parseInt(d.n)||0,P=parseVal(d.parcela);const r=parseVal(d.taxa)/100;let i=tem("taxa")?(un==="a"?a2m(r):r):null;
   const has={P:tem("parcela")&&P>0,n:tem("n")&&n>0,i:tem("taxa")&&r>=0};
   const res={S0,calc:null,erro:"",aviso:""};
+  // saldo de hoje vazio + parcela, nº de parcelas e juros preenchidos: calcula o saldo
+  if(!contrato&&!(S0>0)&&!tem("saldo")&&has.P&&has.n&&has.i){
+    const sd=sac?P/(1/n+i):i>0?P*(1-Math.pow(1+i,-n))/i:P*n;
+    Object.assign(res,{S0:r2(sd),calc:"saldo",n,P,i});return res}
   if(!(S0>0)){res.erro=contrato?"Informe o valor do contrato.":"Informe o saldo devedor.";return res}
   const cnt=has.P+has.n+has.i;
   if(cnt<2){res.erro="Preencha dois entre "+(sac?"1ª parcela":"parcela")+", nº de parcelas e juros: o terceiro é calculado.";return res}
@@ -250,8 +254,8 @@ function montaDiv(d,res,old){
 }
 function atualizaDiv(){ // atualiza só os textos da folha (sem redesenhar os campos enquanto se digita)
   const sh=S.sheet;if(!sh||sh.type!=="divida")return;const d=sh.d,res=calcDiv(d);
-  for(const k of ["parcela","n","taxa"]){const el=document.querySelector(`#box [data-k="${k}"]`);if(!el)continue;const on=res.calc===k&&!res.erro;
-    el.classList.toggle("calc",on);el.placeholder=on?(k==="parcela"?numIn(r2(res.P)):k==="n"?String(res.n):pctIn(d.un==="a"?m2a(res.i):res.i)):"";
+  for(const k of ["saldo","parcela","n","taxa"]){const el=document.querySelector(`#box [data-k="${k}"]`);if(!el)continue;const on=res.calc===k&&!res.erro;
+    el.classList.toggle("calc",on);el.placeholder=on?(k==="saldo"?numIn(res.S0):k==="parcela"?numIn(r2(res.P)):k==="n"?String(res.n):pctIn(d.un==="a"?m2a(res.i):res.i)):"";
     const tg=document.getElementById("tag-"+k);if(tg)tg.classList.toggle("on",on)}
   const eq=$("div-eq");if(eq)eq.textContent=res.i!=null&&!res.erro?(d.un==="a"?`${fmtPct(m2a(res.i))}% a.a. = ${fmtPct(res.i)}% a.m. (juros efetivos)`:`${fmtPct(res.i)}% a.m. = ${fmtPct(m2a(res.i))}% a.a. (juros efetivos)`):"";
   const box=$("div-res");if(!box)return;
@@ -979,7 +983,7 @@ function renderSheet(){
     <div class="row">${cin("s-parcela","parcela",sac?(contrato?"1ª parcela do contrato":"Próxima parcela"):"Parcela",d.parcela,dec)}
       <label class="fld"><span>Juros efetivos (%)<span class="tagc" id="tag-taxa">calculado</span></span><span class="taxa-row"><input id="s-taxa" data-sc="sh" data-k="taxa" data-calc="1" value="${esc(d.taxa)}" type="text" inputmode="decimal" placeholder=""><span class="seg"><button data-a="shset" data-k="un" data-v="m" aria-pressed="${d.un!=="a"}">a.m.</button><button data-a="shset" data-k="un" data-v="a" aria-pressed="${d.un==="a"}">a.a.</button></span></span></label></div>
     <div class="small muted" id="div-eq"></div>
-    <div class="small muted">Preencha dois entre ${sac?"parcela":"parcela"}, nº de parcelas e juros; o que ficar vazio é calculado. Juros com até 3 casas decimais (ex.: 0,875).</div>
+    <div class="small muted">Preencha dois entre parcela, nº de parcelas e juros; o que ficar vazio é calculado.${contrato?"":" Sem o saldo? Preencha os três e deixe o saldo vazio: ele é calculado."} Juros com até 3 casas decimais (ex.: 0,875).</div>
     ${cin("s-enc","enc","Encargos mensais (opcional)",d.enc,dec)}
     <div class="small muted">Seguros e taxas cobrados junto com a parcela (ex.: MIP, DFI, taxa de administração). Somam no valor lançado, mas não entram no cálculo de juros nem no saldo.</div>
     ${selC(true)}
@@ -1381,7 +1385,7 @@ document.addEventListener("click",e=>{
   else if(a==="delFixo"){S.cfg.fixos=S.cfg.fixos.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Fixo excluído. Lançamentos já feitos foram mantidos.");render()}
   else if(a==="divida"){const x=S.cfg.dividas.find(q=>q.id===b.dataset.id);const cc=(S.cfg.contas.find(c=>c.tipo!=="cartao")||S.cfg.contas[0]).id;
     if(x){const modo=x.modo||"saldo",un=x.un||"m",calc=x.calc||(x.taxaInf?"taxa":(!x.n?"n":(x.sis==="sac"&&!x.p1?"parcela":null)));
-      openSheet("divida",{...clone(x),modo,un,unAuto:false,saldo:modo==="saldo"?numIn(x.saldo):"",valor:modo==="contrato"?numIn(x.saldo):"",
+      openSheet("divida",{...clone(x),modo,un,unAuto:false,saldo:modo==="saldo"&&calc!=="saldo"?numIn(x.saldo):"",valor:modo==="contrato"?numIn(x.saldo):"",
         n:calc==="n"?"":String(x.n||""),parcela:calc==="parcela"?"":numIn(x.sis==="sac"?x.p1:x.parcela),taxa:calc==="taxa"?"":pctIn(un==="a"?m2a(x.taxa):x.taxa),
         prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),dia:String(x.dia||"")})}
     else openSheet("divida",{nome:"",tipo:"financiamento",sis:"price",modo:"saldo",un:"a",unAuto:true,saldo:"",valor:"",parcela:"",n:"",taxa:"",prox:addM(CUR,1),ini:addM(CUR,1),dia:"5",enc:"",c:cc,folha:false})}
