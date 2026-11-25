@@ -381,7 +381,7 @@ const opt=(v,l,sel)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(l
 const grupos=t=>t==="R"?S.cfg.rec:S.cfg.desp;
 const cmpTxt=(a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"});
 function ordenaCfg(c){for(const k of ["rec","desp"])if(Array.isArray(c[k])){c[k].sort((a,b)=>cmpTxt(a.n,b.n));for(const g of c[k])if(Array.isArray(g.s))g.s.sort(cmpTxt)}return c}
-function usoSub(t,g){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t&&i.g===g&&i.s)u[i.s]=(u[i.s]||0)+1;return u}
+const usoSub=(t,g)=>uso(t,g);
 const VIS=6;
 function chipsLimitados(lista,freq,sel,k,aberto){ // item 7: mais usados primeiro, o resto atrás de "⋯ mais"
   const ord=lista.slice().sort((a,b)=>(freq[b]||0)-(freq[a]||0)||cmpTxt(a,b));
@@ -391,7 +391,10 @@ function chipsLimitados(lista,freq,sel,k,aberto){ // item 7: mais usados primeir
   if(resto.length)h+=`<button class="chip more" data-a="more" data-k="${k}">${aberto?"menos":"⋯ mais "+resto.length}</button>`;
   return h;
 }
-function usoG(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t)u[i.g]=(u[i.g]||0)+1;return u}
+// frequência de uso: só o que você lança à mão (fixos, dívidas e parcelas seguintes não contam), com mais peso para os meses recentes
+const manual=i=>!i.fx&&!i.dv&&!(i.pn>1);
+function uso(t,g){const u={};for(let k=0;k<6;k++){const w=Math.pow(.85,k);for(const i of getMes(addM(CUR,-k)).itens){if(i.t!==t||!manual(i))continue;const key=g?(i.g===g?i.s:""):i.g;if(key)u[key]=(u[key]||0)+w}}return u}
+const usoG=t=>uso(t);
 function usoGrupos(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t)u[i.g]=(u[i.g]||0)+1;return grupos(t).slice().sort((a,b)=>(u[b.n]||0)-(u[a.n]||0))}
 function itRow(i,m){
   const c=conta(i.c);const sub=[i.g+(i.s?" › "+i.s:""),c?c.n:""].filter(Boolean).join(" · ");
