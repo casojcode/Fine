@@ -10,6 +10,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 ## Pessoal
 
 ### pessoal-v1.4 — 2026-11-18
+- Correção: compras no cartão que caem na fatura do mês seguinte passam a contar na ordem dos grupos do Lançar.
 - Lançar: a ordem dos grupos e subgrupos segue o que você mais lança à mão (fixos, dívidas e parcelas automáticas não contam), com mais peso para os meses recentes.
 - Planejar › Dicas: regra 50/30/20 aplicada à renda e ao histórico (metas sugeridas com botão Aplicar), reserva de emergência, peso das dívidas e qual quitar primeiro, onde cortar e quanto investir por mês. Classificação dos grupos e renda ajustáveis.
 - Subgrupos podem ser movidos para outro grupo, levando lançamentos e fixos antigos. Restaurante passa a ficar em Lazer na configuração inicial.
