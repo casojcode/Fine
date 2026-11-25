@@ -14,6 +14,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 - Comprometido e livre (Início e Relatórios): no mês corrente mostra "Sobra até agora" e a previsão no fim do mês, descontando o que falta gastar até a meta de cada grupo.
 - Dívidas › Saldo de hoje: com parcela, nº de parcelas restantes e juros preenchidos, o saldo devedor pode ficar vazio e é calculado.
 - Dívidas › Dados do contrato: campo opcional "Correção monetária (% a.m.)" para contratos corrigidos por índice (ex.: TR); o saldo é corrigido todo mês antes dos juros. Cada dívida mostra os juros pagos até agora.
+- Lançar: formas de pagamento numa linha só, com rolagem para o lado, ordenadas pelas que você mais usa (o botão Lançar não desce mais).
 
 ### pessoal-v1.4 — 2026-11-18
 - Correção: compras no cartão que caem na fatura do mês seguinte passam a contar na ordem dos grupos do Lançar.
